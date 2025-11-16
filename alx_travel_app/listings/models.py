@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
+from decimal import Decimal
 
 class Listing(models.Model):
     PROPERTY_TYPES = [
@@ -8,7 +11,6 @@ class Listing(models.Model):
         ('villa', 'Villa'),
         ('condo', 'Condo'),
     ]
-
     title = models.CharField(max_length=200)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -26,6 +28,11 @@ class Listing(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def average_rating(self):
+        agg = self.reviews.aggregate(models.Avg('rating'))
+        return agg['rating__avg'] or 0
+
     class Meta:
         ordering = ['-created_at']
 
@@ -37,3 +44,52 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.listing.title}"
+
+class Booking(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    listing = models.ForeignKey(Listing, related_name='bookings', on_delete=models.CASCADE)
+    guest = models.ForeignKey(User, related_name='bookings', on_delete=models.CASCADE)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    guests = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['listing', 'start_date', 'end_date']),
+        ]
+        ordering = ['-created_at']
+
+    def clean(self):
+        if self.end_date <= self.start_date:
+            raise ValueError("End date must be after start date")
+
+    def save(self, *args, **kwargs):
+        if not self.total_price:
+            days = (self.end_date - self.start_date).days or 1
+            self.total_price = self.listing.price * Decimal(days)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Booking {self.id} for {self.listing.title}"
+
+class Review(models.Model):
+    listing = models.ForeignKey(Listing, related_name='reviews', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='reviews', on_delete=models.CASCADE)
+    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('listing', 'user')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Review {self.rating}* by {self.user.username} for {self.listing.title}"
