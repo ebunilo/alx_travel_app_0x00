@@ -133,3 +133,32 @@ MIT (unless changed later)
 ## Disclaimer
 
 Early-stage project; interfaces may change.
+
+## API Endpoints
+
+- Base: /api/
+- Listings:
+  - GET /api/listings/
+  - POST /api/listings/
+  - GET /api/listings/{id}/
+  - PUT/PATCH /api/listings/{id}/
+  - DELETE /api/listings/{id}/
+- Bookings:
+  - GET /api/bookings/
+  - POST /api/bookings/
+  - GET /api/bookings/{id}/
+  - PUT/PATCH /api/bookings/{id}/
+  - DELETE /api/bookings/{id}/
+
+## API Documentation (Swagger)
+
+- Swagger UI: /api/docs/
+- ReDoc: /api/redoc/
+- OpenAPI JSON: /api/schema.json
+- OpenAPI YAML: /api/schema.yaml
+
+### Notes
+
+- Auth required for write operations; reads are public (configurable).
+- Ensure drf-yasg is installed: `pip install drf-yasg`
+- Add `rest_framework` and `drf_yasg` to INSTALLED_APPS.
